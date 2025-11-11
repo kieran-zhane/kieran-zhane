@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created: Nov 11 00:26:29 2025
-Last updated: Nov 11 14:09:12 2025
+Last updated: Nov 11 14:48:25 2025
 
 @author: kieranzhane
 
@@ -948,7 +948,7 @@ def seasonal_diurnal_stats_and_plots(half_hour_price: pd.Series):
     ax.yaxis.set_major_locator(MaxNLocator(nbins=6))
     ax.yaxis.set_major_formatter(PercentFormatter(100))  # show 0–100-scale values as %
     ax.set_ylim(0, max(6.0, float(np.nanmax(y)) * 1.15))  # a little headroom
-    ax.grid(True, which="both", axis="both", linestyle="--", linewidth=0.25, alpha=0.6)
+    ax.grid(True, which="both", axis="both", linestyle="--", linewidth=0.5, alpha=0.6)
     ax.set_xticks(range(0, 24, 3))
     ax.set_xlim(0, 23)
     ax.set_ylim(bottom=0)  # percentages cannot be negative
@@ -1041,14 +1041,36 @@ if __name__ == "__main__":
         price_h = df["price_gbp_per_mwh"].resample("1h").median()
         freq_h  = df["freq_dev_mhz"].resample("1h").median()
 
+        # Aggregate to daily medians for visibility and smooth with a 7-day rolling median
+        price_d = df["price_gbp_per_mwh"].resample("1D").median()
+        freq_d  = df["freq_dev_mhz"].resample("1D").median()
+        price_smooth = price_d.rolling(7, center=True, min_periods=3).median()
+        freq_smooth  = freq_d.rolling(7, center=True, min_periods=3).median()
+        
         fig, ax1 = plt.subplots(figsize=_figsize_wide())
         ax2 = ax1.twinx()
-        ax1.plot(price_h.index, price_h.values, linewidth=1.1, color=PALETTE["blue"],
-                 label="Price (hourly median)")
-        ax2.plot(freq_h.index, freq_h.values, linestyle="-.", linewidth=1.0, color=PALETTE["red"],
-                 label="Frequency deviation (hourly median)")
+        
+        ax1.plot(price_h.index, price_h.values, linewidth=0.3, alpha=0.25, color=PALETTE["blue"])
+        ax2.plot(freq_h.index,  freq_h.values,  linewidth=0.3, alpha=0.25, color=PALETTE["red"])
+        
+        # Main trend lines (clear and readable)
+        l1, = ax1.plot(
+        price_smooth.index, price_smooth.values,
+        linewidth=1.6, color=PALETTE["blue"],
+        label="Price\n(7-day median \n of daily medians)"
+        )
+        
+        l2, = ax2.plot(
+            freq_smooth.index, freq_smooth.values,
+            linewidth=1.6, color=PALETTE["orange"],
+            label="Frequency deviation\n(7-day median \n of daily medians)"
+        )
+        
+        # Axes labels & sensible ranges (tweak if your data extend beyond these)
         ax1.set_ylabel("Price (£/MWh)")
         ax2.set_ylabel("Frequency deviation (mHz)")
+        ax1.set_ylim(-50, 300)
+        ax2.set_ylim(-120, 160)
         ax1.set_xlabel("Time (UTC)")
         first_m = price_h.index.min().tz_localize(None).to_period("M").to_timestamp()
         last_m  = price_h.index.max().tz_localize(None).to_period("M").to_timestamp()
@@ -1059,7 +1081,7 @@ if __name__ == "__main__":
         plt.setp(ax1.get_xticklabels(), rotation=30, ha="right")
         h1, l1 = ax1.get_legend_handles_labels()
         h2, l2 = ax2.get_legend_handles_labels()
-        ax1.legend(h1 + h2, l1 + l2, frameon=False, loc="upper left", bbox_to_anchor=(1.14, 1))
+        ax1.legend(h1 + h2, l1 + l2, frameon=False, loc="upper left", bbox_to_anchor=(1.18, 1))
         ax1.set_title("Price vs Grid Frequency (hourly medians, 2024)")
         _savefig("price_vs_frequency_hourly_medians_2024"); plt.show()
 
