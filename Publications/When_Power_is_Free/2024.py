@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created: Nov 11 00:26:29 2025
-Last updated: Nov 11 16:00:03 2025
+Last updated: Nov 11 16:12:12 2025
 
 @author: Kieran Zhane
 
@@ -868,6 +868,7 @@ def seasonal_diurnal_stats_and_plots(half_hour_price: pd.Series):
         "median_depth_£/MWh": float(np.nanmedian(neg_depth)) if neg_depth.size else np.nan,
         "p10_depth": float(np.nanpercentile(neg_depth, 10)) if neg_depth.size else np.nan,
         "p1_depth":  float(np.nanpercentile(neg_depth, 1)) if neg_depth.size else np.nan,
+        "p90_depth":  float(np.nanpercentile(neg_depth, 90)) if neg_depth.size else np.nan,
     }
 
     _hdr("Headline shares of half-hours with price ≤ £0")
