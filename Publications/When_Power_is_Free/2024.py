@@ -6,6 +6,8 @@ Last updated: Nov 11 22:42:12 2025
 
 @author: Kieran Zhane
 
+Zhané, K., 2025. When Power Is Free and Clean: Empirical Negative-Price Windows and Demand-Response Potential in Great Britain (code and workflows) [Software]. Zenodo. https://doi.org/10.5281/zenodo.17584985.
+
 UK Electricity Mega Script — 2024 Freeze (paper-ready)
 
 This version hard-locks the analysis window to calendar year 2024:
