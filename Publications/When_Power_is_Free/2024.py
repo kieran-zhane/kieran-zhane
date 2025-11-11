@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 """
 Created: Nov 11 00:26:29 2025
-Last updated: Nov 11 14:48:25 2025
+Last updated: Nov 11 16:00:03 2025
 
-@author: kieranzhane
+@author: Kieran Zhane
 
 UK Electricity Mega Script — 2024 Freeze (paper-ready)
 
@@ -976,6 +976,87 @@ def seasonal_diurnal_stats_and_plots(half_hour_price: pd.Series):
             print(f"[logit] Skipped (fit error: {type(e).__name__}: {e})")
     else:
         print("[logit] statsmodels not found; skipping logistic regression.")
+        
+def plot_negative_price_depth(half_hour_price: pd.Series, year: int = 2024):
+    """
+    Plot distribution of negative-price magnitudes (|£/MWh|) for calendar `year`.
+    Saves:
+      - fig_neg_depth_hist_{year}.{pdf,svg,png}
+      - fig_neg_depth_ecdf_{year}.{pdf,svg,png}
+      - negative_price_depth_quantiles_{year}.csv
+    """
+    # Slice to year, compute depths as absolute magnitude below £0
+    tz = getattr(half_hour_price.index, "tz", None)
+    start = pd.Timestamp(f"{year}-01-01", tz=tz)
+    end   = pd.Timestamp(f"{year}-12-31 23:59:59", tz=tz)
+    s = half_hour_price.loc[start:end]
+    depths = (-s[s < 0]).astype(float)  # positive magnitudes for negative prices
+
+    if depths.empty:
+        _hdr(f"Negative price depth — no ≤£0 events in {year}")
+        return
+
+    # Key stats (match those you cite)
+    n = int(depths.size)
+    q50 = float(np.nanmedian(depths))
+    q10 = float(np.nanpercentile(depths, 10))
+    q01 = float(np.nanpercentile(depths, 1))
+    dmin = float(np.nanmin(depths))
+    dmax = float(np.nanmax(depths))
+
+    # ---------- Histogram (percent of events per bin) ----------
+    # Bin edges chosen to resolve shallow events while allowing tail room
+    bins = np.array([0, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 5, 7.5, 10, 15, 20, 30, 40], dtype=float)
+    weights = np.ones_like(depths, dtype=float) * (100.0 / n)
+
+    fig, ax = plt.subplots(figsize=_figsize_single())
+    ax.hist(depths, bins=bins, weights=weights, color=PALETTE["blue"], edgecolor="white")
+    ax.set_xlabel("Negative-price depth |£/MWh|")
+    ax.set_ylabel("% of ≤£0 events")
+    ax.set_title(f"Depth of negative prices — histogram ({year})")
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=6))
+    ax.grid(True, axis="both", linestyle="--", linewidth=0.5, alpha=0.6)
+
+    # Reference lines for median / p10 / p1
+    for x, lab in [(q50, "Median"), (q10, "p10"), (q01, "p1")]:
+        ax.axvline(x, color=PALETTE["red"], linewidth=1.0, alpha=0.9)
+        ax.text(x, ax.get_ylim()[1]*0.92, lab, rotation=90, va="top", ha="right", fontsize=7, color=PALETTE["red"])
+    _savefig(f"neg_price_depth_hist_{year}")
+    plt.show()
+
+    # ---------- ECDF (empirical cumulative) ----------
+    d_sorted = np.sort(depths.values)
+    y = np.arange(1, n + 1) / n * 100.0
+
+    fig, ax = plt.subplots(figsize=_figsize_single())
+    ax.step(d_sorted, y, where="post", color=PALETTE["orange"], linewidth=1.4)
+    ax.set_xlabel("Negative-price depth |£/MWh|")
+    ax.set_ylabel("Cumulative share of ≤£0 events")
+    ax.set_title(f"Depth of negative prices — ECDF ({year})")
+    ax.yaxis.set_major_formatter(PercentFormatter(100))
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=6))
+    ax.grid(True, axis="both", linestyle="--", linewidth=0.5, alpha=0.6)
+
+    # Annotate the same quantiles
+    for x, lab in [(q50, "Median"), (q10, "p10"), (q01, "p1")]:
+        ax.axvline(x, color=PALETTE["grey"], linewidth=0.9, alpha=0.9)
+        ax.text(x, 4, lab, rotation=90, va="bottom", ha="right", fontsize=7, color=PALETTE["grey"])
+    _savefig(f"neg_price_depth_ecdf_{year}")
+    plt.show()
+
+    # ---------- Save a small quantile table for Table 5 ----------
+    out = pd.DataFrame([{
+        "count_neg_halfhours": n,
+        "median_depth_£/MWh": q50,
+        "p10_depth": q10,
+        "p1_depth": q01,
+        "min_depth": dmin,
+        "max_depth": dmax,
+    }])
+    out.to_csv(f"negative_price_depth_quantiles_{year}.csv", index=False)
+
+    _hdr(f"Negative price depth — summary ({year})")
+    _print_table(out)
 
 # ========================== MAIN GLUE ==========================
 if __name__ == "__main__":
@@ -1023,6 +1104,7 @@ if __name__ == "__main__":
     plot_heatmap_last12m_monthly(half_hour_price, END)
     plot_heatmap_year_monthly(half_hour_price, 2024)
     seasonal_diurnal_stats_and_plots(half_hour_price)
+    plot_negative_price_depth(half_hour_price, year=2024)
 
     # 6) Frequency (1-minute) + coupling visuals — 2024 only
     print("\nFetching NESO grid frequency 1-minute series (Jan–Dec 2024)…")
