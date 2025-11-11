@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created: Nov 11 00:26:29 2025
-Last updated: Nov 11 16:12:12 2025
+Last updated: Nov 11 17:22:12 2025
 
 @author: Kieran Zhane
 
@@ -1069,30 +1069,41 @@ if __name__ == "__main__":
     # 2) MID prices — 2024
     mid = fetch_mid_ytd(START, END)
 
-    # 3) Merge on exact 30-min timestamps — 2024
-    merged = pd.merge(ci, mid, on="ts_utc", how="inner").sort_values("ts_utc")
+    # 3) Merge on exact 30-min timestamps — 2024, then collapse duplicates robustly
+    merged = (pd.merge(ci, mid, on="ts_utc", how="inner")
+                .dropna()
+                .sort_values("ts_utc"))
+    
+    # If either feed produced multiple rows for the same half-hour, collapse by mean:
+    merged = (merged
+              .groupby("ts_utc", as_index=False)[["ci_g_per_kwh", "mid_price_gbp_per_mwh"]]
+              .mean()
+              .sort_values("ts_utc"))
+    
+    # Hard slice to calendar 2024
     merged = merged[(merged["ts_utc"].dt.date >= START) & (merged["ts_utc"].dt.date <= END)]
+    
+    # Export the de-duplicated merge
     merged.to_csv("UK_halfhour_price_and_ci_2024.csv", index=False)
-
-    half_hour_price = (
-        merged.set_index("ts_utc")["mid_price_gbp_per_mwh"]
-        .sort_index()
-    )
-    half_hour_price = half_hour_price[~half_hour_price.index.duplicated(keep="first")]
-
-    half_hour_ci = (
-        merged.set_index("ts_utc")["ci_g_per_kwh"]
-        .sort_index()
-    )
-    half_hour_ci = half_hour_ci[~half_hour_ci.index.duplicated(keep="first")]
-
-    daily_price = half_hour_price.resample("1D").mean()
-    daily_ci    = half_hour_ci.resample("1D").mean()
-
-    _hdr("Merge summary (2024)")
-    print(f"Merged rows: {len(merged):,}")
-    print(f"Range: {merged['ts_utc'].min()} → {merged['ts_utc'].max()}")
-    print("Saved merged CSV -> UK_halfhour_price_and_ci_2024.csv")
+    
+    # Build series with guaranteed unique indices
+    half_hour_price = merged.set_index("ts_utc")["mid_price_gbp_per_mwh"].sort_index()
+    half_hour_ci    = merged.set_index("ts_utc")["ci_g_per_kwh"].sort_index()
+    
+    # --- Validation and coverage ---
+    expected = 366 * 48  # leap year 2024
+    n_halfhours = half_hour_price.index.size
+    coverage = 100 * n_halfhours / expected
+    print(f"[merge] Unique half-hours in 2024: {n_halfhours} / {expected} ({coverage:.2f}%)")
+    
+    # Cross-check the ≤£0 counts and minutes for Table 1 / text consistency
+    free_mask = (half_hour_price <= 0)
+    n_free = int(free_mask.sum())
+    minutes_free_total = n_free * 30
+    print(f"[merge] ≤£0 half-hours: {n_free}  |  Minutes: {minutes_free_total:,}")
+    
+    # Optional: fail fast if duplicates reappear later
+    assert half_hour_price.index.is_unique, "Non-unique timestamps remain after collapse."
 
     # 4) Ofgem price cap overlays — 2024
     cap_hh = cap_timeseries(START, END, freq="30min")
@@ -1184,7 +1195,7 @@ if __name__ == "__main__":
             hb = ax.hexbin(sel["freq_dev_mhz"], sel["price_gbp_per_mwh"], gridsize=80, mincnt=5)
             ax.set_xlabel("Frequency deviation (mHz)")
             ax.set_ylabel("Price (£/MWh)")
-            ax.set_title("Price vs Frequency deviation (1-min density) — focused, 2024")
+            ax.set_title("Price vs Frequency deviation (1-min density) — 2024")
             cb = plt.colorbar(hb, ax=ax); cb.set_label("Minutes")
             ax.set_xlim(-250, 250); ax.set_ylim(-40, 110)
             _savefig("hexbin_price_vs_frequency_focused_2024"); plt.show()
