@@ -1,6 +1,6 @@
 - 👋 Hi, I’m @kieran-zhane
-- 👀 I have a background in physics with strengths computational research projects (_in silico_) research projects. Currently my focus is energy industry and flex markets. Previous research I have conducted will be populated on this GitHub in the future too related to Quantum Mechanics.
-- 🌱 I’m currently learning more advanced Python programming building on my taught university analytical skills.
+- 👀 I have a background in physics with strengths computational research projects (_in silico_) research projects. Currently my focus is energy industry and flex markets. Previous in the field of Quantum Mechanics research I have conducted will be populated here in the future.
+- 🌱 I’m currently learning more advanced Python programming skills utilising these with open-source data.
 - 💞️ I’m looking to collaborate on python analysis skill development using open-source datasets for publications.
 - 📫 How to reach me: LinkedIn - Kieran Zhane: https://uk.linkedin.com/in/kieranzhane
 - 😄 Pronouns: he/him
